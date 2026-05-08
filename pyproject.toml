@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-instruction-guard"
+version = "0.1.0"
+description = "Scan AI agent instruction files for risky commands, prompt-injection patterns, and accidental secrets."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "SergioYin"}]
+keywords = ["ai-agents", "context-engineering", "security", "cli", "agents-md"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Security",
+]
+
+[project.scripts]
+agent-instruction-guard = "agent_instruction_guard.cli:main"
+aig = "agent_instruction_guard.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agent_instruction_guard*"]
