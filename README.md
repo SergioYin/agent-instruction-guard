@@ -55,6 +55,12 @@ Emit JSON for downstream tooling:
 agent-instruction-guard . --format json
 ```
 
+Emit SARIF 2.1.0 for code scanning tools:
+
+```bash
+agent-instruction-guard . --format sarif --fail-on none > agent-instruction-guard.sarif
+```
+
 Include additional instruction-like files:
 
 ```bash
@@ -119,7 +125,12 @@ It skips heavy/generated directories such as `.git`, `node_modules`, `dist`, `bu
 python -m unittest discover -s tests -v
 python scripts/selfcheck.py
 python -m agent_instruction_guard examples/risky --format json --fail-on none
+python -m agent_instruction_guard examples/risky --format sarif --fail-on none
 ```
+
+## GitHub code scanning
+
+The SARIF output is compatible with GitHub code scanning upload workflows. This repository intentionally does not include a `.github/workflows/*` example because creating or updating workflow files requires a GitHub token with the `workflow` scope.
 
 ## Non-goals
 

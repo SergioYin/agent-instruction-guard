@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+from .sarif import findings_sarif
 from .scanner import scan, summarize
 
 SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3}
@@ -18,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("path", nargs="?", default=".", help="Repository or directory to scan (default: current directory).")
     parser.add_argument("--include", action="append", default=[], help="Additional glob for instruction-like files. Can be repeated.")
-    parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format.")
+    parser.add_argument("--format", choices=["text", "json", "sarif"], default="text", help="Output format.")
     parser.add_argument("--fail-on", choices=["low", "medium", "high", "none"], default="high", help="Exit non-zero when findings at or above this severity exist. Default: high.")
     parser.add_argument("--list-files", action="store_true", help="List discovered instruction files and exit.")
     return parser
@@ -65,6 +66,8 @@ def main(argv: list[str] | None = None) -> int:
     findings = scan(root, args.include)
     if args.format == "json":
         print(json.dumps({"summary": summarize(findings), "findings": [f.as_dict() for f in findings]}, indent=2, sort_keys=True))
+    elif args.format == "sarif":
+        print(findings_sarif(findings))
     else:
         _print_text(findings)
     return 2 if _should_fail(findings, args.fail_on) else 0
