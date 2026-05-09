@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Added policy profiles with `--profile {lenient,default,strict}`.
+- Added JSON report metadata for the selected profile and per-finding `original_severity` when a profile changes severity.
+
 ## 0.1.3
 
 - Added `--include-guidance` / `--explain` to include concise remediation guidance in text and JSON reports.

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .baseline import BaselineError, load_baseline, suppress_findings, write_baseline
 from .sarif import findings_sarif
-from .scanner import RULE_DOCS, rule_docs, scan, summarize
+from .scanner import PROFILES, RULE_DOCS, apply_profile, rule_docs, scan, summarize
 
 SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3}
 
@@ -21,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("path", nargs="?", default=".", help="Repository or directory to scan (default: current directory).")
     parser.add_argument("--include", action="append", default=[], help="Additional glob for instruction-like files. Can be repeated.")
     parser.add_argument("--format", choices=["text", "json", "sarif"], default="text", help="Output format.")
+    parser.add_argument("--profile", choices=PROFILES, default="default", help="Policy profile: lenient reduces selected non-critical findings, default preserves normal behavior, strict promotes risky ambiguity/scope findings.")
     parser.add_argument("--fail-on", choices=["low", "medium", "high", "none"], default="high", help="Exit non-zero when findings at or above this severity exist. Default: high.")
     parser.add_argument("--baseline", help="Suppress findings whose stable fingerprints appear in this JSON baseline.")
     parser.add_argument("--write-baseline", help="Write a JSON baseline for the current findings without suppressing them.")
@@ -96,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         for rel in _discovered_files(root, args.include):
             print(rel)
         return 0
-    findings = scan(root, args.include)
+    findings = apply_profile(scan(root, args.include), args.profile)
     baseline = None
     if args.baseline:
         try:
@@ -115,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             json.dumps(
                 {
+                    "profile": args.profile,
                     "summary": summarize(visible_findings),
                     "suppressed": suppressed_count,
                     "findings": [f.as_dict(include_guidance=args.include_guidance) for f in visible_findings],

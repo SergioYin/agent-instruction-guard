@@ -144,6 +144,20 @@ RULES = [
     ),
 ]
 
+PROFILES = ("lenient", "default", "strict")
+
+PROFILE_SEVERITY_OVERRIDES = {
+    "lenient": {
+        "ignore_safety_controls": "low",
+    },
+    "default": {},
+    "strict": {
+        "ignore_safety_controls": "high",
+        "hidden_instruction": "high",
+        "network_side_effect": "medium",
+    },
+}
+
 RULE_DOCS = {
     "possible_secret": RuleDoc(
         "possible_secret",
@@ -168,6 +182,7 @@ class Finding:
     severity: str
     message: str
     excerpt: str
+    original_severity: str | None = None
 
     def as_dict(self, include_guidance: bool = False) -> dict[str, object]:
         item: dict[str, object] = {
@@ -178,6 +193,8 @@ class Finding:
             "message": self.message,
             "excerpt": self.excerpt,
         }
+        if self.original_severity is not None:
+            item["original_severity"] = self.original_severity
         if include_guidance:
             doc = RULE_DOCS.get(self.rule)
             if doc is not None:
@@ -246,6 +263,30 @@ def scan(root: str | Path, extra_globs: Iterable[str] = ()) -> list[Finding]:
     return sorted(findings, key=lambda f: (f.path, f.line, f.severity, f.rule))
 
 
+def apply_profile(findings: Iterable[Finding], profile: str) -> list[Finding]:
+    if profile not in PROFILES:
+        raise ValueError(f"unknown profile: {profile}")
+    overrides = PROFILE_SEVERITY_OVERRIDES[profile]
+    profiled: list[Finding] = []
+    for finding in findings:
+        severity = overrides.get(finding.rule, finding.severity)
+        original = finding.original_severity
+        if severity != finding.severity:
+            original = finding.original_severity or finding.severity
+        profiled.append(
+            Finding(
+                path=finding.path,
+                line=finding.line,
+                rule=finding.rule,
+                severity=severity,
+                message=finding.message,
+                excerpt=finding.excerpt,
+                original_severity=original,
+            )
+        )
+    return sorted(profiled, key=lambda f: (f.path, f.line, f.severity, f.rule))
+
+
 def summarize(findings: Iterable[Finding]) -> dict[str, int]:
     counts = {"high": 0, "medium": 0, "low": 0}
     for finding in findings:
@@ -267,4 +308,5 @@ def items_to_findings(items: Iterable[dict[str, object]]) -> Iterator[Finding]:
             severity=str(item["severity"]),
             message=str(item["message"]),
             excerpt=str(item["excerpt"]),
+            original_severity=str(item["original_severity"]) if item.get("original_severity") is not None else None,
         )

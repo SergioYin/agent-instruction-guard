@@ -1,3 +1,7 @@
 """Agent Instruction Guard."""
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
+
+from .scanner import PROFILES
+
+__all__ = ["PROFILES", "__version__"]

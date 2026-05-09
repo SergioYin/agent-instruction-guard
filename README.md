@@ -55,6 +55,22 @@ Emit JSON for downstream tooling:
 agent-instruction-guard . --format json
 ```
 
+Choose a policy profile:
+
+```bash
+agent-instruction-guard . --profile lenient
+agent-instruction-guard . --profile default
+agent-instruction-guard . --profile strict
+```
+
+Profiles let teams tune strictness without editing scanner rules:
+
+- `lenient`: reduces noise by downgrading selected non-critical review findings.
+- `default`: preserves the standard scanner behavior.
+- `strict`: promotes risky ambiguity and scope findings for hardened contexts.
+
+JSON output includes the selected `profile`. Findings whose severity changed also include `original_severity`.
+
 Include rule-specific remediation guidance in text or JSON reports:
 
 ```bash
@@ -160,7 +176,9 @@ It skips heavy/generated directories such as `.git`, `node_modules`, `dist`, `bu
 python -m unittest discover -s tests -v
 python scripts/selfcheck.py
 git diff --check
+python -m compileall agent_instruction_guard tests scripts
 python -m agent_instruction_guard examples/risky --format json --fail-on none
+python -m agent_instruction_guard examples/risky --format json --profile strict --fail-on none
 python -m agent_instruction_guard examples/risky --format json --explain --fail-on none
 python -m agent_instruction_guard examples/risky --format sarif --fail-on none
 python -m agent_instruction_guard --list-rules

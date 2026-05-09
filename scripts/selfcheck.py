@@ -19,6 +19,23 @@ def main() -> int:
         text=True,
         capture_output=True,
     )
+    strict_json = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "agent_instruction_guard",
+            str(ROOT / "examples" / "risky"),
+            "--format",
+            "json",
+            "--profile",
+            "strict",
+            "--fail-on",
+            "none",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
     if safe.returncode != 0:
         print(safe.stdout)
         print(safe.stderr)
@@ -31,6 +48,10 @@ def main() -> int:
         print(sarif.stdout)
         print(sarif.stderr)
         return sarif.returncode
+    if strict_json.returncode != 0:
+        print(strict_json.stdout)
+        print(strict_json.stderr)
+        return strict_json.returncode
     try:
         sarif_document = json.loads(sarif.stdout)
     except json.JSONDecodeError as exc:
@@ -38,6 +59,17 @@ def main() -> int:
         return 1
     if sarif_document.get("version") != "2.1.0" or not sarif_document.get("runs"):
         print("invalid SARIF document shape")
+        return 1
+    try:
+        strict_document = json.loads(strict_json.stdout)
+    except json.JSONDecodeError as exc:
+        print(f"invalid strict profile JSON: {exc}")
+        return 1
+    if strict_document.get("profile") != "strict":
+        print("strict profile missing from JSON output")
+        return 1
+    if not any("original_severity" in finding for finding in strict_document.get("findings", [])):
+        print("strict profile did not report changed original severity")
         return 1
     with tempfile.TemporaryDirectory() as tmp:
         baseline_path = Path(tmp) / "baseline.json"
@@ -83,7 +115,7 @@ def main() -> int:
             print(use_baseline.stdout)
             print("baseline suppression count missing")
             return 1
-    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF output is valid JSON; baseline suppresses findings")
+    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF and strict-profile JSON are valid; baseline suppresses findings")
     return 0
 
 
