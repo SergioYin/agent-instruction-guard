@@ -73,6 +73,26 @@ List files that would be scanned:
 agent-instruction-guard . --list-files
 ```
 
+Create a baseline from the current findings:
+
+```bash
+agent-instruction-guard . --write-baseline .agent-instruction-guard-baseline.json --fail-on none
+```
+
+Use that baseline on later scans:
+
+```bash
+agent-instruction-guard . --baseline .agent-instruction-guard-baseline.json --fail-on high
+```
+
+This helps gradual adoption in existing repositories: known findings stay visible in the baseline file for human review, but they do not keep failing every scan while the team fixes them over time. New or changed findings still appear in the normal report and can fail the command according to `--fail-on`.
+
+Refresh the baseline after reviewing current findings:
+
+```bash
+agent-instruction-guard . --write-baseline .agent-instruction-guard-baseline.json --fail-on none
+```
+
 ## Example
 
 Safe example:
@@ -117,6 +137,7 @@ It skips heavy/generated directories such as `.git`, `node_modules`, `dist`, `bu
 
 - `0`: scan completed and no findings at or above `--fail-on` threshold.
 - `2`: findings met the failure threshold.
+- Findings suppressed by `--baseline` do not count toward the failure threshold.
 - argparse errors use Python's standard non-zero CLI behavior.
 
 ## Local validation

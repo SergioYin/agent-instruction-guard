@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-instruction-guard"
-version = "0.1.1"
+version = "0.1.2"
 description = "Scan AI agent instruction files for risky commands, prompt-injection patterns, and accidental secrets."
 readme = "README.md"
 requires-python = ">=3.9"

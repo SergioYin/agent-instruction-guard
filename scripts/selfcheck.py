@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,7 +39,51 @@ def main() -> int:
     if sarif_document.get("version") != "2.1.0" or not sarif_document.get("runs"):
         print("invalid SARIF document shape")
         return 1
-    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF output is valid JSON")
+    with tempfile.TemporaryDirectory() as tmp:
+        baseline_path = Path(tmp) / "baseline.json"
+        write_baseline = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agent_instruction_guard",
+                str(ROOT / "examples" / "risky"),
+                "--write-baseline",
+                str(baseline_path),
+                "--fail-on",
+                "none",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+        use_baseline = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "agent_instruction_guard",
+                str(ROOT / "examples" / "risky"),
+                "--baseline",
+                str(baseline_path),
+                "--fail-on",
+                "high",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+        if write_baseline.returncode != 0:
+            print(write_baseline.stdout)
+            print(write_baseline.stderr)
+            return write_baseline.returncode
+        if use_baseline.returncode != 0:
+            print(use_baseline.stdout)
+            print(use_baseline.stderr)
+            return use_baseline.returncode
+        if "Suppressed by baseline:" not in use_baseline.stdout:
+            print(use_baseline.stdout)
+            print("baseline suppression count missing")
+            return 1
+    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF output is valid JSON; baseline suppresses findings")
     return 0
 
 
