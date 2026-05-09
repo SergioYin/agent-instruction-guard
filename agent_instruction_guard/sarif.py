@@ -5,7 +5,7 @@ import json
 from typing import Iterable
 
 from . import __version__
-from .scanner import Finding, RULES
+from .scanner import Finding, RULE_DOCS, RULES
 
 INFORMATION_URI = "https://github.com/SergioYin/agent-instruction-guard"
 
@@ -28,18 +28,37 @@ def _rule_messages() -> dict[str, str]:
     return messages
 
 
+def _guidance_text(rule_id: str) -> str | None:
+    doc = RULE_DOCS.get(rule_id)
+    if doc is None:
+        return None
+    return " ".join(
+        [
+            f"Why: {doc.guidance['why']}",
+            f"Rewrite: {doc.guidance['rewrite']}",
+            f"Verify: {doc.guidance['verify']}",
+        ]
+    )
+
+
 def sarif_dict(findings: Iterable[Finding]) -> dict[str, object]:
     items = list(findings)
     rule_messages = _rule_messages()
     rule_ids = sorted({finding.rule for finding in items})
-    rules = [
-        {
+    rules = []
+    for rule_id in rule_ids:
+        rule = {
             "id": rule_id,
             "name": rule_id,
             "shortDescription": {"text": rule_messages.get(rule_id, rule_id.replace("_", " "))},
         }
-        for rule_id in rule_ids
-    ]
+        guidance = _guidance_text(rule_id)
+        doc = RULE_DOCS.get(rule_id)
+        if guidance is not None:
+            rule["help"] = {"text": guidance}
+        if doc is not None:
+            rule["properties"] = {"severity": doc.severity, "guidance": dict(doc.guidance)}
+        rules.append(rule)
     results = []
     for finding in items:
         result = {

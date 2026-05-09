@@ -51,6 +51,60 @@ SECRET_PATTERNS = [
     re.compile(r"-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"),
 ]
 
+@dataclass(frozen=True)
+class RuleDoc:
+    rule: str
+    severity: str
+    message: str
+    guidance: dict[str, str]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "rule": self.rule,
+            "severity": self.severity,
+            "message": self.message,
+            "guidance": dict(self.guidance),
+        }
+
+
+RULE_GUIDANCE = {
+    "remote_code_execution": {
+        "why": "Piping downloaded content into an interpreter lets remote changes run with local privileges.",
+        "rewrite": "Download to a reviewed file, verify its checksum or signature, then run an audited command.",
+        "verify": "Confirm the URL, pinned version, checksum, and required shell privileges.",
+    },
+    "destructive_command": {
+        "why": "Recursive deletes, disk writes, or broad permission changes can destroy project or host data.",
+        "rewrite": "Scope cleanup commands to known generated paths and require an explicit human approval step.",
+        "verify": "Check the target path, dry-run output, backups, and whether sudo is actually required.",
+    },
+    "credential_exfiltration": {
+        "why": "Agent-readable instructions that print or send credentials can leak private access material.",
+        "rewrite": "Tell agents to avoid reading secrets and use approved secret managers or redacted diagnostics.",
+        "verify": "Confirm logs, issues, pull requests, and uploaded artifacts do not contain credential values.",
+    },
+    "ignore_safety_controls": {
+        "why": "Bypass instructions can pressure agents to ignore sandboxing, approval, or policy boundaries.",
+        "rewrite": "State the legitimate workflow and require normal approvals for privileged or risky actions.",
+        "verify": "Confirm the instruction does not conflict with repository, tool, or organization policies.",
+    },
+    "hidden_instruction": {
+        "why": "Hidden or encoded directions make review harder and can conceal behavior from maintainers.",
+        "rewrite": "Replace encoded or non-transparent instructions with plain, reviewable text.",
+        "verify": "Decode any payloads and confirm the visible instruction matches the intended agent behavior.",
+    },
+    "network_side_effect": {
+        "why": "Network-capable commands can fetch unreviewed content or transmit repository data.",
+        "rewrite": "Prefer pinned, read-only fetches and document the expected destination and data flow.",
+        "verify": "Confirm the endpoint, method, authentication, and whether any local data is uploaded.",
+    },
+    "possible_secret": {
+        "why": "Instruction files are commonly shared with agents and logs, so embedded secrets can spread quickly.",
+        "rewrite": "Remove the value, rotate it if it was real, and reference an environment variable or secret store.",
+        "verify": "Confirm the secret is revoked or rotated and that history, logs, and baselines are clean.",
+    },
+}
+
 RULES = [
     (
         "remote_code_execution",
@@ -90,6 +144,22 @@ RULES = [
     ),
 ]
 
+RULE_DOCS = {
+    "possible_secret": RuleDoc(
+        "possible_secret",
+        "high",
+        "Potential credential material in an agent-readable file.",
+        RULE_GUIDANCE["possible_secret"],
+    )
+}
+for _rule, _severity, _pattern, _message in RULES:
+    RULE_DOCS[_rule] = RuleDoc(_rule, _severity, _message, RULE_GUIDANCE[_rule])
+
+
+def rule_docs() -> list[RuleDoc]:
+    severity_rank = {"high": 3, "medium": 2, "low": 1}
+    return sorted(RULE_DOCS.values(), key=lambda doc: (-severity_rank.get(doc.severity, 0), doc.rule))
+
 @dataclass(frozen=True)
 class Finding:
     path: str
@@ -99,8 +169,8 @@ class Finding:
     message: str
     excerpt: str
 
-    def as_dict(self) -> dict[str, object]:
-        return {
+    def as_dict(self, include_guidance: bool = False) -> dict[str, object]:
+        item: dict[str, object] = {
             "path": self.path,
             "line": self.line,
             "rule": self.rule,
@@ -108,6 +178,11 @@ class Finding:
             "message": self.message,
             "excerpt": self.excerpt,
         }
+        if include_guidance:
+            doc = RULE_DOCS.get(self.rule)
+            if doc is not None:
+                item["guidance"] = dict(doc.guidance)
+        return item
 
 
 def is_instruction_file(path: Path, root: Path) -> bool:

@@ -55,6 +55,13 @@ Emit JSON for downstream tooling:
 agent-instruction-guard . --format json
 ```
 
+Include rule-specific remediation guidance in text or JSON reports:
+
+```bash
+agent-instruction-guard . --include-guidance
+agent-instruction-guard . --format json --explain --fail-on none
+```
+
 Emit SARIF 2.1.0 for code scanning tools:
 
 ```bash
@@ -71,6 +78,13 @@ List files that would be scanned:
 
 ```bash
 agent-instruction-guard . --list-files
+```
+
+List rule documentation without scanning:
+
+```bash
+agent-instruction-guard --list-rules
+agent-instruction-guard --list-rules --format json
 ```
 
 Create a baseline from the current findings:
@@ -145,8 +159,11 @@ It skips heavy/generated directories such as `.git`, `node_modules`, `dist`, `bu
 ```bash
 python -m unittest discover -s tests -v
 python scripts/selfcheck.py
+git diff --check
 python -m agent_instruction_guard examples/risky --format json --fail-on none
+python -m agent_instruction_guard examples/risky --format json --explain --fail-on none
 python -m agent_instruction_guard examples/risky --format sarif --fail-on none
+python -m agent_instruction_guard --list-rules
 ```
 
 ## GitHub code scanning

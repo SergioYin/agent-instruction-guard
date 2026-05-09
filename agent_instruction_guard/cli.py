@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .baseline import BaselineError, load_baseline, suppress_findings, write_baseline
 from .sarif import findings_sarif
-from .scanner import scan, summarize
+from .scanner import RULE_DOCS, rule_docs, scan, summarize
 
 SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3}
 
@@ -25,6 +25,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--baseline", help="Suppress findings whose stable fingerprints appear in this JSON baseline.")
     parser.add_argument("--write-baseline", help="Write a JSON baseline for the current findings without suppressing them.")
     parser.add_argument("--list-files", action="store_true", help="List discovered instruction files and exit.")
+    parser.add_argument("--list-rules", action="store_true", help="List scanner rule documentation and exit without scanning.")
+    parser.add_argument("--include-guidance", "--explain", action="store_true", help="Include rule-specific remediation guidance in reports.")
     return parser
 
 
@@ -35,7 +37,23 @@ def _discovered_files(path: Path, include: list[str]) -> list[str]:
     return [p.relative_to(root).as_posix() for p in iter_instruction_files(root, include)]
 
 
-def _print_text(findings, suppressed_count: int = 0, show_suppressed: bool = False) -> None:
+def _print_guidance(guidance: dict[str, str], indent: str = "  ") -> None:
+    print(f"{indent}Guidance:")
+    print(f"{indent}  Why: {guidance['why']}")
+    print(f"{indent}  Rewrite: {guidance['rewrite']}")
+    print(f"{indent}  Verify: {guidance['verify']}")
+
+
+def _print_rule_docs_text() -> None:
+    print("Agent Instruction Guard Rules")
+    for doc in rule_docs():
+        print("")
+        print(f"[{doc.severity.upper()}] {doc.rule}")
+        print(f"  {doc.message}")
+        _print_guidance(doc.guidance)
+
+
+def _print_text(findings, suppressed_count: int = 0, show_suppressed: bool = False, include_guidance: bool = False) -> None:
     counts = summarize(findings)
     print("Agent Instruction Guard")
     print(f"Summary: high={counts.get('high', 0)} medium={counts.get('medium', 0)} low={counts.get('low', 0)}")
@@ -49,6 +67,10 @@ def _print_text(findings, suppressed_count: int = 0, show_suppressed: bool = Fal
         print(f"[{finding.severity.upper()}] {finding.path}:{finding.line} {finding.rule}")
         print(f"  {finding.message}")
         print(f"  > {finding.excerpt}")
+        if include_guidance:
+            doc = RULE_DOCS.get(finding.rule)
+            if doc is not None:
+                _print_guidance(doc.guidance)
 
 
 def _should_fail(findings, fail_on: str) -> bool:
@@ -61,6 +83,12 @@ def _should_fail(findings, fail_on: str) -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.list_rules:
+        if args.format == "json":
+            print(json.dumps({"rules": [doc.as_dict() for doc in rule_docs()]}, indent=2, sort_keys=True))
+        else:
+            _print_rule_docs_text()
+        return 0
     root = Path(args.path)
     if not root.exists():
         parser.error(f"path does not exist: {root}")
@@ -84,11 +112,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: could not write baseline {args.write_baseline}: {exc}", file=sys.stderr)
             return 1
     if args.format == "json":
-        print(json.dumps({"summary": summarize(visible_findings), "suppressed": suppressed_count, "findings": [f.as_dict() for f in visible_findings]}, indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "summary": summarize(visible_findings),
+                    "suppressed": suppressed_count,
+                    "findings": [f.as_dict(include_guidance=args.include_guidance) for f in visible_findings],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
     elif args.format == "sarif":
         print(findings_sarif(visible_findings))
     else:
-        _print_text(visible_findings, suppressed_count, baseline is not None)
+        _print_text(visible_findings, suppressed_count, baseline is not None, args.include_guidance)
     return 2 if _should_fail(visible_findings, args.fail_on) else 0
 
 
