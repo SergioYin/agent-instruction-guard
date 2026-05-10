@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 
 from .baseline import BaselineError, load_baseline, suppress_findings, write_baseline
+from .config import ConfigError, discover_config, load_config
 from .sarif import findings_sarif
-from .scanner import PROFILES, RULE_DOCS, apply_profile, rule_docs, scan, summarize
+from .scanner import PROFILES, RULE_DOCS, apply_profile, apply_rule_overrides, rule_docs, scan, summarize
 
 SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3}
 
@@ -22,6 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--include", action="append", default=[], help="Additional glob for instruction-like files. Can be repeated.")
     parser.add_argument("--format", choices=["text", "json", "sarif"], default="text", help="Output format.")
     parser.add_argument("--profile", choices=PROFILES, default="default", help="Policy profile: lenient reduces selected non-critical findings, default preserves normal behavior, strict promotes risky ambiguity/scope findings.")
+    parser.add_argument("--config", help="Path to agent-instruction-guard TOML config. Defaults to auto-discovery in the current working directory.")
     parser.add_argument("--fail-on", choices=["low", "medium", "high", "none"], default="high", help="Exit non-zero when findings at or above this severity exist. Default: high.")
     parser.add_argument("--baseline", help="Suppress findings whose stable fingerprints appear in this JSON baseline.")
     parser.add_argument("--write-baseline", help="Write a JSON baseline for the current findings without suppressing them.")
@@ -97,7 +99,17 @@ def main(argv: list[str] | None = None) -> int:
         for rel in _discovered_files(root, args.include):
             print(rel)
         return 0
+    config_path = Path(args.config).expanduser() if args.config else discover_config()
+    config = None
+    if config_path is not None:
+        try:
+            config = load_config(config_path, set(RULE_DOCS))
+        except ConfigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
     findings = apply_profile(scan(root, args.include), args.profile)
+    if config is not None:
+        findings = apply_rule_overrides(findings, config.rule_severities)
     baseline = None
     if args.baseline:
         try:
@@ -113,14 +125,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: could not write baseline {args.write_baseline}: {exc}", file=sys.stderr)
             return 1
     if args.format == "json":
+        report = {
+            "profile": args.profile,
+            "summary": summarize(visible_findings),
+            "suppressed": suppressed_count,
+            "findings": [f.as_dict(include_guidance=args.include_guidance) for f in visible_findings],
+        }
+        if config is not None:
+            report["config_path"] = str(config.path)
         print(
             json.dumps(
-                {
-                    "profile": args.profile,
-                    "summary": summarize(visible_findings),
-                    "suppressed": suppressed_count,
-                    "findings": [f.as_dict(include_guidance=args.include_guidance) for f in visible_findings],
-                },
+                report,
                 indent=2,
                 sort_keys=True,
             )

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Added repository-local TOML configuration via `--config` or auto-discovered `agent-instruction-guard.toml` / `.agent-instruction-guard.toml`.
+- Added per-rule severity overrides, including `ignore` to suppress a rule.
+- Added JSON `config_path` metadata when configuration is used.
+
 ## 0.1.4
 
 - Added policy profiles with `--profile {lenient,default,strict}`.

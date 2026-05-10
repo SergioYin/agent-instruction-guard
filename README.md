@@ -71,6 +71,28 @@ Profiles let teams tune strictness without editing scanner rules:
 
 JSON output includes the selected `profile`. Findings whose severity changed also include `original_severity`.
 
+Use repository-local rule overrides:
+
+```bash
+agent-instruction-guard . --config agent-instruction-guard.toml
+```
+
+When `--config` is not supplied, the CLI looks in the current working directory for `agent-instruction-guard.toml` and then `.agent-instruction-guard.toml`. Configuration is optional; when no config file is found, scanner behavior is unchanged.
+
+Example config:
+
+```toml
+[rules.network_side_effect]
+severity = "medium"
+
+[rules.hidden_instruction]
+severity = "ignore"
+```
+
+Supported severities are `low`, `medium`, `high`, and `ignore`. `ignore` suppresses findings for that rule. Invalid rule IDs or severities fail fast with a clear error and a non-zero exit. JSON output includes `config_path` when a config file is used, and findings whose severity changed include `original_severity`.
+
+Configuration is a convenience for repository maintainers, not a safety boundary. Lowering severities or using `ignore` can hide risky instructions from failing scans, so keep overrides reviewed with the same care as agent instruction files. Scanner excerpts remain redacted before printing.
+
 Include rule-specific remediation guidance in text or JSON reports:
 
 ```bash

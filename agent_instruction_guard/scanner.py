@@ -287,6 +287,28 @@ def apply_profile(findings: Iterable[Finding], profile: str) -> list[Finding]:
     return sorted(profiled, key=lambda f: (f.path, f.line, f.severity, f.rule))
 
 
+def apply_rule_overrides(findings: Iterable[Finding], overrides: dict[str, str]) -> list[Finding]:
+    configured: list[Finding] = []
+    for finding in findings:
+        severity = overrides.get(finding.rule, finding.severity)
+        if severity == "ignore":
+            continue
+        base_severity = finding.original_severity or finding.severity
+        original = base_severity if severity != base_severity else None
+        configured.append(
+            Finding(
+                path=finding.path,
+                line=finding.line,
+                rule=finding.rule,
+                severity=severity,
+                message=finding.message,
+                excerpt=finding.excerpt,
+                original_severity=original,
+            )
+        )
+    return sorted(configured, key=lambda f: (f.path, f.line, f.severity, f.rule))
+
+
 def summarize(findings: Iterable[Finding]) -> dict[str, int]:
     counts = {"high": 0, "medium": 0, "low": 0}
     for finding in findings:
