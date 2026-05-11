@@ -1,0 +1,5 @@
+[rules.network_side_effect]
+severity = "high"
+
+[rules.ignore_safety_controls]
+severity = "low"

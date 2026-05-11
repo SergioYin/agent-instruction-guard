@@ -8,6 +8,9 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from scripts.generate_policy_report_fixtures import render_report  # noqa: E402
 
 
 def main() -> int:
@@ -71,6 +74,10 @@ def main() -> int:
     if not any("original_severity" in finding for finding in strict_document.get("findings", [])):
         print("strict profile did not report changed original severity")
         return 1
+    fixture_path = ROOT / "examples" / "policy-override-report.json"
+    if render_report() != fixture_path.read_text(encoding="utf-8"):
+        print("policy override report fixture is stale; run python scripts/generate_policy_report_fixtures.py")
+        return 1
     with tempfile.TemporaryDirectory() as tmp:
         baseline_path = Path(tmp) / "baseline.json"
         write_baseline = subprocess.run(
@@ -115,7 +122,7 @@ def main() -> int:
             print(use_baseline.stdout)
             print("baseline suppression count missing")
             return 1
-    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF and strict-profile JSON are valid; baseline suppresses findings")
+    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF and strict-profile JSON are valid; policy fixture is current; baseline suppresses findings")
     return 0
 
 

@@ -1,0 +1,52 @@
+"""Generate deterministic sample policy override report fixtures."""
+from __future__ import annotations
+
+import contextlib
+import io
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from agent_instruction_guard.cli import main  # noqa: E402
+
+SAMPLE_DIR = ROOT / "examples" / "policy-override"
+CONFIG_PATH = SAMPLE_DIR / "agent-instruction-guard.toml"
+REPORT_PATH = ROOT / "examples" / "policy-override-report.json"
+
+
+def build_report_document() -> dict[str, object]:
+    stdout = io.StringIO()
+    with contextlib.redirect_stdout(stdout):
+        exit_code = main(
+            [
+                str(SAMPLE_DIR),
+                "--config",
+                str(CONFIG_PATH),
+                "--format",
+                "json",
+                "--fail-on",
+                "none",
+            ]
+        )
+    if exit_code != 0:
+        raise RuntimeError(f"fixture scan failed with exit code {exit_code}")
+    document = json.loads(stdout.getvalue())
+    document["config_path"] = CONFIG_PATH.relative_to(ROOT).as_posix()
+    return document
+
+
+def render_report() -> str:
+    return json.dumps(build_report_document(), indent=2, sort_keys=True) + "\n"
+
+
+def main_script() -> int:
+    REPORT_PATH.write_text(render_report(), encoding="utf-8")
+    print(f"wrote {REPORT_PATH.relative_to(ROOT).as_posix()}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main_script())

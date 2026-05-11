@@ -93,6 +93,22 @@ Supported severities are `low`, `medium`, `high`, and `ignore`. `ignore` suppres
 
 Configuration is a convenience for repository maintainers, not a safety boundary. Lowering severities or using `ignore` can hide risky instructions from failing scans, so keep overrides reviewed with the same care as agent instruction files. Scanner excerpts remain redacted before printing.
 
+Sample config override evidence is checked in under `examples/policy-override/`:
+
+```bash
+python -m agent_instruction_guard examples/policy-override \
+  --config examples/policy-override/agent-instruction-guard.toml \
+  --format json --fail-on none
+```
+
+The matching portable fixture is `examples/policy-override-report.json`. It demonstrates `config_path` plus `original_severity` for rules promoted or downgraded by config. The fixture stores `config_path` as a repository-relative path so it can be compared across machines; the live CLI output uses an absolute path.
+
+Regenerate the fixture after changing policy output behavior:
+
+```bash
+python scripts/generate_policy_report_fixtures.py
+```
+
 Include rule-specific remediation guidance in text or JSON reports:
 
 ```bash
@@ -201,6 +217,7 @@ git diff --check
 python -m compileall agent_instruction_guard tests scripts
 python -m agent_instruction_guard examples/risky --format json --fail-on none
 python -m agent_instruction_guard examples/risky --format json --profile strict --fail-on none
+python scripts/generate_policy_report_fixtures.py
 python -m agent_instruction_guard examples/risky --format json --explain --fail-on none
 python -m agent_instruction_guard examples/risky --format sarif --fail-on none
 python -m agent_instruction_guard --list-rules

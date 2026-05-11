@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+- Added checked-in sample policy override inputs and a portable JSON report fixture.
+- Added deterministic fixture generation and tests for config override evidence fields.
+- Documented how to regenerate and inspect config override report evidence.
+
 ## 0.1.5
 
 - Added repository-local TOML configuration via `--config` or auto-discovered `agent-instruction-guard.toml` / `.agent-instruction-guard.toml`.

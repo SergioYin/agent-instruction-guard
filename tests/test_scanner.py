@@ -10,6 +10,7 @@ from agent_instruction_guard.baseline import finding_fingerprint
 from agent_instruction_guard.scanner import scan, summarize, redact
 from agent_instruction_guard.cli import main
 from agent_instruction_guard.sarif import sarif_dict
+from scripts.generate_policy_report_fixtures import render_report
 
 
 class ScannerTests(unittest.TestCase):
@@ -325,6 +326,19 @@ class ScannerTests(unittest.TestCase):
             output = stdout.getvalue()
             self.assertIn("Suppressed by baseline: 1", output)
             self.assertIn("No risky instruction patterns found.", output)
+
+    def test_policy_override_report_fixture_is_current(self):
+        fixture = Path("examples/policy-override-report.json").read_text(encoding="utf-8")
+        self.assertEqual(render_report(), fixture)
+        report = json.loads(fixture)
+        self.assertEqual(report["config_path"], "examples/policy-override/agent-instruction-guard.toml")
+        findings = {finding["rule"]: finding for finding in report["findings"]}
+        self.assertEqual(findings["network_side_effect"]["severity"], "high")
+        self.assertEqual(findings["network_side_effect"]["original_severity"], "low")
+        self.assertEqual(findings["ignore_safety_controls"]["severity"], "low")
+        self.assertEqual(findings["ignore_safety_controls"]["original_severity"], "medium")
+        self.assertNotIn("token", fixture.lower())
+        self.assertNotIn("password", fixture.lower())
 
 
 if __name__ == "__main__":
