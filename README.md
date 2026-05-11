@@ -71,6 +71,14 @@ Profiles let teams tune strictness without editing scanner rules:
 
 JSON output includes the selected `profile`. Findings whose severity changed also include `original_severity`.
 
+Compare all built-in profiles for the same scan:
+
+```bash
+agent-instruction-guard . --compare-profiles --format json --fail-on none
+```
+
+The comparison report contains one normal JSON report per profile under `profiles.lenient`, `profiles.default`, and `profiles.strict`. The command applies the same repository scan, optional config, and optional baseline to each profile, making severity differences deterministic and easy to diff.
+
 Use repository-local rule overrides:
 
 ```bash
@@ -103,7 +111,19 @@ python -m agent_instruction_guard examples/policy-override \
 
 The matching portable fixture is `examples/policy-override-report.json`. It demonstrates `config_path` plus `original_severity` for rules promoted or downgraded by config. The fixture stores `config_path` as a repository-relative path so it can be compared across machines; the live CLI output uses an absolute path.
 
-Regenerate the fixture after changing policy output behavior:
+Profile comparison evidence is checked in under `examples/profile-comparison/` with the portable fixture `examples/profile-comparison-report.json`:
+
+```bash
+python -m agent_instruction_guard examples/profile-comparison \
+  --compare-profiles --format json --fail-on none
+```
+
+Baseline/report interop evidence for policy overrides is also checked in:
+
+- `examples/policy-override-baseline.json`: baseline generated from the config-overridden policy findings.
+- `examples/policy-override-baselined-report.json`: JSON report showing those same config-overridden findings suppressed by that baseline.
+
+Regenerate the fixtures after changing policy output behavior:
 
 ```bash
 python scripts/generate_policy_report_fixtures.py
@@ -154,6 +174,8 @@ agent-instruction-guard . --baseline .agent-instruction-guard-baseline.json --fa
 ```
 
 This helps gradual adoption in existing repositories: known findings stay visible in the baseline file for human review, but they do not keep failing every scan while the team fixes them over time. New or changed findings still appear in the normal report and can fail the command according to `--fail-on`.
+
+JSON output includes `baseline_path` when a baseline is used.
 
 Refresh the baseline after reviewing current findings:
 
@@ -217,6 +239,7 @@ git diff --check
 python -m compileall agent_instruction_guard tests scripts
 python -m agent_instruction_guard examples/risky --format json --fail-on none
 python -m agent_instruction_guard examples/risky --format json --profile strict --fail-on none
+python -m agent_instruction_guard examples/profile-comparison --compare-profiles --format json --fail-on none
 python scripts/generate_policy_report_fixtures.py
 python -m agent_instruction_guard examples/risky --format json --explain --fail-on none
 python -m agent_instruction_guard examples/risky --format sarif --fail-on none

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.7
+
+- Added `--compare-profiles` to emit lenient/default/strict reports for the same scan.
+- Added checked-in profile comparison fixtures that deterministically show profile severity differences.
+- Added policy override baseline/report interop fixtures with normalized paths and timestamps.
+- Added JSON `baseline_path` metadata when reports use a baseline.
+- Updated tests, selfcheck, and docs for the new fixture set.
+
 ## 0.1.6
 
 - Added checked-in sample policy override inputs and a portable JSON report fixture.

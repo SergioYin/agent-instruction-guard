@@ -10,7 +10,12 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.generate_policy_report_fixtures import render_report  # noqa: E402
+from scripts.generate_policy_report_fixtures import (  # noqa: E402
+    render_baselined_report,
+    render_policy_override_baseline,
+    render_profile_comparison_report,
+    render_report,
+)
 
 
 def main() -> int:
@@ -39,6 +44,22 @@ def main() -> int:
         text=True,
         capture_output=True,
     )
+    profile_comparison = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "agent_instruction_guard",
+            str(ROOT / "examples" / "profile-comparison"),
+            "--compare-profiles",
+            "--format",
+            "json",
+            "--fail-on",
+            "none",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
     if safe.returncode != 0:
         print(safe.stdout)
         print(safe.stderr)
@@ -55,6 +76,10 @@ def main() -> int:
         print(strict_json.stdout)
         print(strict_json.stderr)
         return strict_json.returncode
+    if profile_comparison.returncode != 0:
+        print(profile_comparison.stdout)
+        print(profile_comparison.stderr)
+        return profile_comparison.returncode
     try:
         sarif_document = json.loads(sarif.stdout)
     except json.JSONDecodeError as exc:
@@ -74,9 +99,33 @@ def main() -> int:
     if not any("original_severity" in finding for finding in strict_document.get("findings", [])):
         print("strict profile did not report changed original severity")
         return 1
+    try:
+        comparison_document = json.loads(profile_comparison.stdout)
+    except json.JSONDecodeError as exc:
+        print(f"invalid profile comparison JSON: {exc}")
+        return 1
+    profiles = comparison_document.get("profiles", {})
+    if sorted(profiles) != ["default", "lenient", "strict"]:
+        print("profile comparison did not include all profiles")
+        return 1
+    if profiles["strict"].get("summary", {}).get("high") != 2:
+        print("profile comparison strict summary did not show promoted findings")
+        return 1
     fixture_path = ROOT / "examples" / "policy-override-report.json"
     if render_report() != fixture_path.read_text(encoding="utf-8"):
         print("policy override report fixture is stale; run python scripts/generate_policy_report_fixtures.py")
+        return 1
+    profile_fixture_path = ROOT / "examples" / "profile-comparison-report.json"
+    if render_profile_comparison_report() != profile_fixture_path.read_text(encoding="utf-8"):
+        print("profile comparison report fixture is stale; run python scripts/generate_policy_report_fixtures.py")
+        return 1
+    baseline_fixture_path = ROOT / "examples" / "policy-override-baseline.json"
+    if render_policy_override_baseline() != baseline_fixture_path.read_text(encoding="utf-8"):
+        print("policy override baseline fixture is stale; run python scripts/generate_policy_report_fixtures.py")
+        return 1
+    baselined_report_fixture_path = ROOT / "examples" / "policy-override-baselined-report.json"
+    if render_baselined_report() != baselined_report_fixture_path.read_text(encoding="utf-8"):
+        print("policy override baselined report fixture is stale; run python scripts/generate_policy_report_fixtures.py")
         return 1
     with tempfile.TemporaryDirectory() as tmp:
         baseline_path = Path(tmp) / "baseline.json"
@@ -122,7 +171,7 @@ def main() -> int:
             print(use_baseline.stdout)
             print("baseline suppression count missing")
             return 1
-    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF and strict-profile JSON are valid; policy fixture is current; baseline suppresses findings")
+    print("selfcheck ok: safe example passes; risky example fails with findings; SARIF, strict-profile JSON, profile comparison, policy fixtures, and baseline suppression are valid")
     return 0
 
 
